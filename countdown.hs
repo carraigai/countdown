@@ -1,16 +1,17 @@
 -- Channel 4 countdown solver
 -- Given a set of numbers, and solution, figure out how the numbers were combined to arrive at solution
--- countdown_solver [25,6,9,1,8,3] 303
--- countdown_solver [25,6,9,1,8,3] 26
 
+-- TODO:
+-- fix names (from python like)
 -- show (Plus (Raw 15) (Multiply ( Minus (Raw 5) (Raw 1) ) (Raw 2)))
 -- "(15+((5-1)*2))"  
-data Exp = Raw Int | Plus Exp Exp | Minus Exp Exp | Multiply Exp Exp deriving Eq
+data Exp = Raw Int | Plus Exp Exp | Minus Exp Exp | Multiply Exp Exp | Divide Exp Exp deriving Eq
 instance Show Exp where
     show ( Raw a) = show a
     show ( Plus a b) = "(" ++ show a ++ "+" ++ show b ++ ")"
     show ( Minus a b) = "(" ++ show a ++ "-" ++ show b ++ ")"
     show ( Multiply a b) = "(" ++ show a ++ "*" ++ show b ++ ")"
+    show ( Divide a b) = "(" ++ show a ++ "/" ++ show b ++ ")"
 
 
 -- splits [25,6,9,1,8,3]
@@ -26,6 +27,13 @@ splits xs = splits' (head xs) (tail xs)
 convert_to_expression :: (Int, [Int]) -> (Exp, [Exp])
 convert_to_expression (x, ys) = ( Raw x, map (\y -> Raw y) ys )
 
+-- this function will evaluate a/b and b/a before creating expression.
+division_helper :: Exp -> Exp -> [Exp] -> [(Exp, [Exp])]
+division_helper a b xs
+    | eb > ea      = division_helper b a xs
+    | otherwise    = if ea `mod` eb == 0 then [(Divide a b, [])] else []
+    where ea = eval_expression a
+          eb = eval_expression b
 
 -- create_expressions (25,[6,9,1,8,3])
 create_expressions :: (Exp, [Exp]) -> [(Exp, [Exp])]
@@ -43,20 +51,28 @@ create_expressions (x, ys)  =
                    plus_exp'          = ( (Plus  x (ys!!n)), rest')
                    minus_exp'         = ( (Minus x (ys!!n)), rest')
                    multiply_exp'      = ( (Multiply x (ys!!n)), rest')
-                  in [ plus_exp',  minus_exp', multiply_exp' ] ++ pair' x ys (n+1)
-
+                   division_exp'      = division_helper x (ys!!n) rest' 
+                 in 
+                   division_exp' ++ [ plus_exp',  minus_exp', multiply_exp' ] ++ pair' x ys (n+1)
 
 
 -- eval_expression
+-- reduce a `mod` reduce b == 0
+
 eval_expression :: Exp -> Int
 eval_expression ( Raw a )        =  a
 eval_expression ( Plus a b)      = eval_expression a + eval_expression b
 eval_expression ( Minus a b)     = eval_expression a - eval_expression b
 eval_expression ( Multiply a b)  = eval_expression a * eval_expression b
+eval_expression ( Divide a b)    = eval_expression a `div` eval_expression b
+
+
 
 
 -- countdown_solver [25,6,9,1,8,3] 52
--- all +
+-- countdown_solver [25,6,9,1,8,3] 303
+-- countdown_solver [25,6,9,1,8,3] 26
+-- countdown_solver [100, 4, 5, 10] 20
 countdown_solver :: [Int] -> Int -> Exp
-countdown_solver nums target = fst $ head $ filter (\(x,y) ->  eval_expression x == target) $ concatMap create_expressions $ map convert_to_expression $ splits nums
+countdown_solver nums target = fst $ head $ filter (\(x,y) ->  eval_expression x == target) . concatMap create_expressions . map convert_to_expression $ splits nums
 
